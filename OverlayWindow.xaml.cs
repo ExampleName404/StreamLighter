@@ -39,14 +39,22 @@ namespace StreamLighter
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            // Restrict overlay to the selected monitor bounds (default: primary)
-            var screen = Forms.Screen.PrimaryScreen;
-            var bounds = screen.Bounds;
-            Left = bounds.X;
-            Top = bounds.Y;
-            Width = bounds.Width;
-            Height = bounds.Height;
+            // If size/position were already set by caller (e.g. MainWindow.ApplySelectedMonitorToOverlay), do not override them.
+            bool sizeUnset = double.IsNaN(Width) || double.IsNaN(Height) || Width <= 0 || Height <= 0;
+            bool posUnset = double.IsNaN(Left) || double.IsNaN(Top);
 
+            if (sizeUnset || posUnset)
+            {
+                // Restrict overlay to the selected monitor bounds (default: primary)
+                var screen = Forms.Screen.PrimaryScreen;
+                var bounds = screen.Bounds;
+                Left = bounds.X;
+                Top = bounds.Y;
+                Width = bounds.Width;
+                Height = bounds.Height;
+            }
+
+            // Initialize hole geometry and mask regardless of whether we set bounds here
             holeGeometry = new EllipseGeometry(new System.Windows.Point(-1000, -1000), holeRadius, holeRadius);
             UpdateMaskPath();
         }

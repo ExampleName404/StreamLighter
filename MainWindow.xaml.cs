@@ -1,5 +1,11 @@
 using System;
+using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Interop;
+using System.Windows.Media.Imaging;
+using System.Drawing;
+using System.Drawing.Drawing2D;
 using Forms = System.Windows.Forms;
 
 namespace StreamLighter
@@ -8,11 +14,64 @@ namespace StreamLighter
     {
         private OverlayWindow? overlay;
         private Forms.Screen[] screens = Array.Empty<Forms.Screen>();
+        private Forms.NotifyIcon? trayIcon;
+        private System.Drawing.Icon? appIcon;
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern bool DestroyIcon(IntPtr handle);
 
         public MainWindow()
         {
             InitializeComponent();
             LoadMonitors();
+            InitializeTrayIcon();
+            Closing += MainWindow_Closing;
+        }
+
+        private void InitializeTrayIcon()
+        {
+            trayIcon = new Forms.NotifyIcon();
+            trayIcon.Text = "StreamLighter — by NotUnrealEngineer";
+            // create a simple programmatic icon (circle) to use in tray and window
+            try
+            {
+                using var bmp = new System.Drawing.Bitmap(64, 64);
+                using (var g = System.Drawing.Graphics.FromImage(bmp))
+                {
+                    g.SmoothingMode = SmoothingMode.AntiAlias;
+                    g.Clear(System.Drawing.Color.Transparent);
+                    var rect = new System.Drawing.Rectangle(4, 4, 56, 56);
+                    using var brush = new LinearGradientBrush(rect, System.Drawing.Color.FromArgb(255, 255, 200, 0), System.Drawing.Color.FromArgb(255, 255, 120, 0), 45f);
+                    g.FillEllipse(brush, rect);
+                    using var pen = new System.Drawing.Pen(System.Drawing.Color.FromArgb(200, 80, 40, 0), 3);
+                    g.DrawEllipse(pen, rect);
+                }
+                var hIcon = bmp.GetHicon();
+                appIcon = System.Drawing.Icon.FromHandle(hIcon);
+                trayIcon.Icon = appIcon;
+
+                // set WPF window icon from hIcon
+                var bitmapSource = Imaging.CreateBitmapSourceFromHIcon(hIcon, Int32Rect.Empty, BitmapSizeOptions.FromWidthAndHeight(32, 32));
+                this.Icon = bitmapSource;
+            }
+            catch
+            {
+                trayIcon.Icon = System.Drawing.SystemIcons.Application;
+            }
+
+            // keep icon always visible in tray
+            trayIcon.Visible = true;
+
+            var menu = new Forms.ContextMenuStrip();
+            var openItem = new Forms.ToolStripMenuItem("Open");
+            openItem.Click += (s, e) => ShowFromTray();
+            var exitItem = new Forms.ToolStripMenuItem("Exit");
+            exitItem.Click += (s, e) => ExitFromTray();
+            menu.Items.Add(openItem);
+            menu.Items.Add(exitItem);
+            trayIcon.ContextMenuStrip = menu;
+
+            trayIcon.DoubleClick += (s, e) => ShowFromTray();
         }
 
         private void LoadMonitors()
@@ -45,6 +104,53 @@ namespace StreamLighter
                 overlay = null;
                 ToggleOverlay.Content = "Off";
             }
+        }
+
+        private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+        {
+            // hide to tray instead of exiting
+            e.Cancel = true;
+            HideToTray();
+        }
+
+        private void HideToTray()
+        {
+            Hide();
+            if (trayIcon != null)
+            {
+                trayIcon.Visible = true;
+                // Do not show balloon tip when hiding to tray
+            }
+        }
+
+        private void ShowFromTray()
+        {
+            Dispatcher.Invoke(() =>
+            {
+                Show();
+                WindowState = WindowState.Normal;
+                Activate();
+            });
+        }
+
+        private void ExitFromTray()
+        {
+            // cleanup and shutdown
+            if (trayIcon != null)
+            {
+                trayIcon.Visible = false;
+                trayIcon.Dispose();
+                trayIcon = null;
+            }
+            // dispose created icon
+            if (appIcon != null)
+            {
+                var handle = appIcon.Handle;
+                appIcon.Dispose();
+                appIcon = null;
+                DestroyIcon(handle);
+            }
+            Application.Current.Shutdown();
         }
 
         private void SliderBrightness_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)

@@ -47,6 +47,9 @@
             </StackPanel>
         </StackPanel>
 
-        <TextBlock Grid.Row="3" TextWrapping="Wrap" FontSize="11">Tip: Overlay is click-through so it won't block apps. Use the toggle to enable/disable.</TextBlock>
+        <StackPanel Grid.Row="3" Orientation="Vertical">
+            <TextBlock TextWrapping="Wrap" FontSize="11">Tip: Overlay is click-through so it won't block apps. Use the toggle to enable/disable.</TextBlock>
+            <TextBlock HorizontalAlignment="Right" FontSize="10" Foreground="Gray" Margin="0,6,0,0">by NotUnrealEngineer</TextBlock>
+        </StackPanel>
     </Grid>
 </Window>
